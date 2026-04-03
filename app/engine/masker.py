@@ -138,10 +138,15 @@ class MaskingEngine:
     def _extract_org_suffix_matches(self, text: str, location: str) -> List[Dict]:
         suffixes = self.org_suffix_rules.get("suffixes") or []
         max_prefix_length = int(self.org_suffix_rules.get("max_prefix_length", 16) or 16)
+        keep_prefix_length = int(self.org_suffix_rules.get("keep_prefix_length", 5) or 5)
         confidence = float(self.org_suffix_rules.get("confidence", 0.8) or 0.8)
         masked_by = self.org_suffix_rules.get("masked_by") or "org_suffix_mask_v2"
         if not isinstance(suffixes, list):
             return []
+
+        skip_tokens = set(self.org_suffix_rules.get("skip_tokens") or [
+            "来自", "员工", "联系人", "客户", "对接人", "负责人", "由", "在", "是"
+        ])
 
         matches: List[Dict] = []
         for suffix in suffixes:
@@ -150,10 +155,27 @@ class MaskingEngine:
             pattern = rf"([\u4e00-\u9fffA-Za-z0-9]{{2,{max_prefix_length}}}{re.escape(suffix)})"
             for match in re.finditer(pattern, text):
                 org_name = match.group(1)
-                replacement = org_name[:2] + "*" * max(1, len(org_name) - 2)
+                start = match.start(1)
+                end = match.end(1)
+
+                split_pattern = "|".join(re.escape(token) for token in skip_tokens if token)
+                if split_pattern:
+                    candidate_parts = re.split(split_pattern, org_name)
+                    candidate = candidate_parts[-1] if candidate_parts else org_name
+                    if candidate and candidate != org_name:
+                        start = end - len(candidate)
+                        org_name = candidate
+
+                if not org_name:
+                    continue
+
+                end = start + len(org_name)
+                visible_count = min(keep_prefix_length, max(1, len(org_name) - 1))
+                visible_prefix = org_name[:visible_count]
+                replacement = visible_prefix + "*" * max(1, len(org_name) - visible_count)
                 matches.append({
-                    "start": match.start(1),
-                    "end": match.end(1),
+                    "start": start,
+                    "end": end,
                     "replacement": replacement,
                     "entity_type": "ORGANIZATION_NAME",
                     "rule_type": "org_suffix",

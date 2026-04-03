@@ -44,6 +44,17 @@ org_suffix_rules:
     - '科技'
     - '技术部'
   max_prefix_length: 16
+  keep_prefix_length: 5
+  skip_tokens:
+    - '来自'
+    - '员工'
+    - '联系人'
+    - '客户'
+    - '对接人'
+    - '负责人'
+    - '由'
+    - '在'
+    - '是'
   confidence: 0.8
   masked_by: 'org_suffix_mask_v2'
 
@@ -76,6 +87,17 @@ profiles:
         - '科技'
         - '技术部'
       max_prefix_length: 16
+      keep_prefix_length: 5
+      skip_tokens:
+        - '来自'
+        - '员工'
+        - '联系人'
+        - '客户'
+        - '对接人'
+        - '负责人'
+        - '由'
+        - '在'
+        - '是'
       confidence: 0.8
       masked_by: 'org_suffix_mask_v2'
 
@@ -115,5 +137,16 @@ profiles:
         - '中心'
         - '事务所'
       max_prefix_length: 24
+      keep_prefix_length: 5
+      skip_tokens:
+        - '来自'
+        - '员工'
+        - '联系人'
+        - '客户'
+        - '对接人'
+        - '负责人'
+        - '由'
+        - '在'
+        - '是'
       confidence: 0.9
       masked_by: 'org_suffix_mask_strict_v2'
