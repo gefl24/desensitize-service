@@ -47,6 +47,8 @@ docker compose down
 ## 6. 挂载目录
 Compose 默认挂载：
 - `./logs -> /app/logs`
+
+说明：若宿主机日志目录权限不足，服务会自动降级到 stdout 输出日志，不再因日志文件权限导致启动失败。
 - `./config -> /app/config`
 - `./uploads -> /app/uploads`
 - `./outputs -> /app/outputs`
