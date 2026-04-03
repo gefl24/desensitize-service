@@ -11,5 +11,38 @@ regex_rules:
   bank_card:
     pattern: '\b\d{12,19}\b'
     replacement: 'BANK_CARD_MASK'
+
 dictionary_files:
   - sensitive_names.txt
+
+dictionary_groups:
+  person:
+    - sensitive_names.txt
+  org:
+    - sensitive_orgs.txt
+
+person_context_rules:
+  - left_contexts:
+      - '联系人'
+      - '客户'
+      - '对接人'
+      - '负责人'
+      - '由'
+    right_contexts:
+      - '老师'
+      - '总'
+      - '经理'
+    max_name_length: 4
+    confidence: 0.85
+    masked_by: 'person_context_mask_v2'
+
+org_suffix_rules:
+  suffixes:
+    - '公司'
+    - '有限公司'
+    - '集团'
+    - '科技'
+    - '技术部'
+  max_prefix_length: 16
+  confidence: 0.8
+  masked_by: 'org_suffix_mask_v2'

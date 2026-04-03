@@ -80,7 +80,8 @@ async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_ap
             total_hits=len(details),
             details=details,
         )
-        report_path.write_text(report.model_dump_json(indent=2, ensure_ascii=False), encoding="utf-8")
+        report_payload = report.model_dump() if hasattr(report, "model_dump") else report.dict()
+        report_path.write_text(json.dumps(report_payload, indent=2, ensure_ascii=False), encoding="utf-8")
         build_result_zip(zip_path, masked_file_path, report_path)
         logger.info("desensitize success task_id=%s file=%s hits=%s", task_id, file.filename, len(details))
     except Exception as exc:
