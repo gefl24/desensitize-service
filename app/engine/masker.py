@@ -4,8 +4,8 @@ from typing import Dict, List, Tuple
 
 import yaml
 
-from app.models.report import HitDetail
 from app.engine.dictionary_loader import DictionaryMasker
+from app.models.report import HitDetail
 
 
 class MaskingEngine:
@@ -32,23 +32,35 @@ class MaskingEngine:
         profile_config = profiles.get(self.profile) or {}
         if not isinstance(profile_config, dict):
             return base_config
+
         merged = dict(base_config)
         merged.update(profile_config)
         return merged
 
-    def _load_regex_rules(self):
+    def _load_regex_rules(self) -> Dict:
         regex_rules = self.config.get("regex_rules") or {}
-        if not isinstance(regex_rules, dict):
-            return {}
-        return regex_rules
+        return regex_rules if isinstance(regex_rules, dict) else {}
 
-    def _load_person_context_rules(self):
+    def _load_person_context_rules(self) -> List[Dict]:
         rules = self.config.get("person_context_rules") or []
         return rules if isinstance(rules, list) else []
 
-    def _load_org_suffix_rules(self):
+    def _load_org_suffix_rules(self) -> Dict:
         rules = self.config.get("org_suffix_rules") or {}
         return rules if isinstance(rules, dict) else {}
+
+    def _mask_person_name(self, value: str) -> str:
+        if len(value) <= 1:
+            return "*"
+        if len(value) == 2:
+            return "*" + value[-1]
+        return value[0] + "*" * (len(value) - 2) + value[-1]
+
+    def _mask_org_name(self, value: str) -> str:
+        keep_prefix_length = int(self.org_suffix_rules.get("keep_prefix_length", 5) or 5)
+        visible_count = min(keep_prefix_length, max(1, len(value) - 1))
+        visible_prefix = value[:visible_count]
+        return visible_prefix + "*" * max(1, len(value) - visible_count)
 
     def _mask_by_rule(self, rule_name: str, value: str) -> str:
         if rule_name == "phone":
@@ -67,6 +79,25 @@ class MaskingEngine:
             if len(value) >= 8:
                 return value[:4] + "*" * (len(value) - 8) + value[-4:]
         return "[MASKED]"
+
+    def _normalize_person_name(self, value: str, right_contexts: List[str]) -> str:
+        candidate = value.strip()
+        trailing_tokens = list(right_contexts) + [
+            "跟进", "负责", "处理", "确认", "回复", "对接", "沟通", "审批", "已确认"
+        ]
+        for token in sorted(set(filter(None, trailing_tokens)), key=len, reverse=True):
+            if candidate.endswith(token) and len(candidate) > len(token):
+                candidate = candidate[:-len(token)]
+                break
+
+        invalid_first_chars = {"人", "方", "由", "员", "客"}
+        invalid_last_chars = {"跟", "已", "来", "在", "做", "发"}
+
+        while candidate and candidate[0] in invalid_first_chars:
+            candidate = candidate[1:]
+        while candidate and candidate[-1] in invalid_last_chars:
+            candidate = candidate[:-1]
+        return candidate
 
     def _apply_matches(self, text: str, matches: List[Dict]) -> Tuple[str, List[HitDetail]]:
         if not matches:
@@ -97,19 +128,23 @@ class MaskingEngine:
             left_contexts = rule.get("left_contexts") or []
             right_contexts = rule.get("right_contexts") or []
             max_name_length = int(rule.get("max_name_length", 4) or 4)
+            left_name_max_length = int(rule.get("left_name_max_length", min(3, max_name_length)) or min(3, max_name_length))
             masked_by = rule.get("masked_by") or "person_context_mask_v2"
             confidence = float(rule.get("confidence", 0.85) or 0.85)
 
             for left in left_contexts:
                 if not left:
                     continue
-                pattern = re.escape(left) + rf"([\u4e00-\u9fff]{{2,{max_name_length}}})"
+                pattern = re.escape(left) + rf"([\u4e00-\u9fff]{{2,{left_name_max_length}}})"
                 for match in re.finditer(pattern, text):
-                    name = match.group(1)
+                    raw_name = match.group(1)
+                    name = self._normalize_person_name(raw_name, right_contexts)
+                    if len(name) < 2:
+                        continue
                     matches.append({
-                        "start": match.start(1),
-                        "end": match.end(1),
-                        "replacement": name[0] + "*" * (len(name) - 1),
+                        "start": match.start(1) + (len(raw_name) - len(name)),
+                        "end": match.start(1) + len(raw_name),
+                        "replacement": self._mask_person_name(name),
                         "entity_type": "PERSON_NAME",
                         "rule_type": "person_context",
                         "location": location,
@@ -122,11 +157,14 @@ class MaskingEngine:
                     continue
                 pattern = rf"([\u4e00-\u9fff]{{2,{max_name_length}}})" + re.escape(right)
                 for match in re.finditer(pattern, text):
-                    name = match.group(1)
+                    raw_name = match.group(1)
+                    name = self._normalize_person_name(raw_name, right_contexts)
+                    if len(name) < 2:
+                        continue
                     matches.append({
-                        "start": match.start(1),
-                        "end": match.end(1),
-                        "replacement": name[0] + "*" * (len(name) - 1),
+                        "start": match.start(1) + (len(raw_name) - len(name)),
+                        "end": match.start(1) + len(raw_name),
+                        "replacement": self._mask_person_name(name),
                         "entity_type": "PERSON_NAME",
                         "rule_type": "person_context",
                         "location": location,
@@ -138,7 +176,6 @@ class MaskingEngine:
     def _extract_org_suffix_matches(self, text: str, location: str) -> List[Dict]:
         suffixes = self.org_suffix_rules.get("suffixes") or []
         max_prefix_length = int(self.org_suffix_rules.get("max_prefix_length", 16) or 16)
-        keep_prefix_length = int(self.org_suffix_rules.get("keep_prefix_length", 5) or 5)
         confidence = float(self.org_suffix_rules.get("confidence", 0.8) or 0.8)
         masked_by = self.org_suffix_rules.get("masked_by") or "org_suffix_mask_v2"
         if not isinstance(suffixes, list):
@@ -147,6 +184,7 @@ class MaskingEngine:
         skip_tokens = set(self.org_suffix_rules.get("skip_tokens") or [
             "来自", "员工", "联系人", "客户", "对接人", "负责人", "由", "在", "是"
         ])
+        role_prefixes = ["合作方", "甲方", "乙方", "客户", "供应商"]
 
         matches: List[Dict] = []
         for suffix in suffixes:
@@ -166,13 +204,17 @@ class MaskingEngine:
                         start = end - len(candidate)
                         org_name = candidate
 
+                for prefix in role_prefixes:
+                    if org_name.startswith(prefix) and len(org_name) > len(prefix):
+                        org_name = org_name[len(prefix):]
+                        start = end - len(org_name)
+                        break
+
                 if not org_name:
                     continue
 
                 end = start + len(org_name)
-                visible_count = min(keep_prefix_length, max(1, len(org_name) - 1))
-                visible_prefix = org_name[:visible_count]
-                replacement = visible_prefix + "*" * max(1, len(org_name) - visible_count)
+                replacement = self._mask_org_name(org_name)
                 matches.append({
                     "start": start,
                     "end": end,
@@ -190,11 +232,11 @@ class MaskingEngine:
             return []
 
         priority = {
-            "regex": 4,
+            "regex": 5,
+            "person_context": 4,
+            "org_suffix": 4,
             "dictionary_group": 3,
             "dictionary": 2,
-            "person_context": 1,
-            "org_suffix": 1,
         }
         ordered = sorted(
             matches,
@@ -239,12 +281,18 @@ class MaskingEngine:
         dict_matches = self.dictionary_masker.extract(text)
         for payload, start, end in dict_matches:
             keyword = payload["keyword"]
-            replaced = "*" * len(keyword)
+            entity_type = payload.get("entity_type", "DICTIONARY_TERM")
+            if entity_type == "PERSON_NAME":
+                replaced = self._mask_person_name(keyword)
+            elif entity_type == "ORGANIZATION_NAME":
+                replaced = self._mask_org_name(keyword)
+            else:
+                replaced = "*" * len(keyword)
             all_matches.append({
                 "start": start,
                 "end": end,
                 "replacement": replaced,
-                "entity_type": payload.get("entity_type", "DICTIONARY_TERM"),
+                "entity_type": entity_type,
                 "rule_type": payload.get("rule_type", "dictionary"),
                 "location": location,
                 "confidence": 1.0,

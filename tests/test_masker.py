@@ -25,7 +25,9 @@ def test_masker_should_mask_person_context_and_org_suffix_rules():
     masked, details = engine.desensitize_text(text, location='text:2')
 
     assert '王小明' not in masked
+    assert '王*明' in masked
     assert '李四' not in masked
+    assert '*四' in masked
     assert '星海集团' not in masked
 
     rule_types = {detail.rule_type for detail in details}
@@ -36,8 +38,9 @@ def test_masker_should_mask_person_context_and_org_suffix_rules():
 def test_masker_report_should_distinguish_hit_types():
     engine = MaskingEngine(CONFIG_DIR)
     text = '客户赵敏经理邮箱zhaomin@example.com，就职于测试科技。'
-    _, details = engine.desensitize_text(text, location='text:3')
+    masked, details = engine.desensitize_text(text, location='text:3')
 
+    assert '*敏' in masked
     assert any(detail.rule_type == 'person_context' and detail.entity_type == 'PERSON_NAME' for detail in details)
     assert any(detail.rule_type == 'regex' and detail.entity_type == 'EMAIL' for detail in details)
     assert any(detail.entity_type == 'ORGANIZATION_NAME' for detail in details)
