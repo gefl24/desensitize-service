@@ -10,6 +10,7 @@ class HitDetail(BaseModel):
     masked_preview: str
     confidence: float = 1.0
     masked_by: Optional[str] = None
+    rule_hint: Optional[str] = None
     skipped_reason: Optional[str] = None
 
 

@@ -89,4 +89,15 @@ def test_org_suffix_should_mask_school_authority_and_finance_units():
     assert '平安保险' not in masked
     assert '创新基金' not in masked
     assert '第一幼儿园' not in masked
-    assert sum(1 for detail in details if detail.rule_type == 'org_suffix') >= 10
+
+
+def test_org_suffix_should_support_whitelist_and_rule_hint():
+    strict_engine = MaskingEngine(CONFIG_DIR, profile='strict')
+    text = '这里说的是学校和政府这两个泛词，不该脱敏；北京大学和朝阳区人民法院应该脱敏。'
+
+    masked, details = strict_engine.desensitize_text(text, location='text:8')
+
+    assert '学校和政府这两个泛词' in masked
+    assert '北京大学' not in masked
+    assert '朝阳区人民法院' not in masked
+    assert any(detail.rule_type == 'org_suffix' and detail.rule_hint in {'大学', '法院'} for detail in details)

@@ -119,6 +119,7 @@ class MaskingEngine:
                 masked_preview=replacement,
                 confidence=item.get("confidence", 1.0),
                 masked_by=item.get("masked_by"),
+                rule_hint=item.get("rule_hint"),
             ))
         return masked_text, details
 
@@ -181,6 +182,7 @@ class MaskingEngine:
         if not isinstance(suffixes, list):
             return []
 
+        whitelist = set(self.org_suffix_rules.get("whitelist") or [])
         skip_tokens = set(self.org_suffix_rules.get("skip_tokens") or [
             "来自", "员工", "联系人", "客户", "对接人", "负责人", "由", "在", "是"
         ])
@@ -210,7 +212,20 @@ class MaskingEngine:
                         start = end - len(org_name)
                         break
 
+                connector_parts = re.split(r'[和与及、]', org_name)
+                connector_match = re.search(r'[和与及、]', org_name)
+                connector_candidate = connector_parts[-1] if connector_parts else org_name
+                if connector_match and connector_match.start() >= 2 and connector_candidate and connector_candidate != org_name:
+                    org_name = connector_candidate
+                    start = end - len(org_name)
+
                 if not org_name:
+                    continue
+
+                generic_follow_chars = {"这", "那", "和", "及", "等", "类", "性", "里", "中", "上", "下"}
+                if org_name in whitelist:
+                    continue
+                if any(org_name.startswith(item) and len(org_name) == len(item) + 1 and org_name[len(item)] in generic_follow_chars for item in whitelist):
                     continue
 
                 end = start + len(org_name)
@@ -224,6 +239,7 @@ class MaskingEngine:
                     "location": location,
                     "confidence": confidence,
                     "masked_by": masked_by,
+                    "rule_hint": suffix,
                 })
         return matches
 

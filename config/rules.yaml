@@ -71,6 +71,12 @@ org_suffix_rules:
     - '幼儿园'
     - '职业学校'
     - '实验学校'
+  whitelist:
+    - '学校'
+    - '医院'
+    - '政府'
+    - '法院'
+    - '办公室'
   max_prefix_length: 16
   keep_prefix_length: 5
   skip_tokens:
@@ -142,6 +148,12 @@ profiles:
         - '幼儿园'
         - '职业学校'
         - '实验学校'
+      whitelist:
+        - '学校'
+        - '医院'
+        - '政府'
+        - '法院'
+        - '办公室'
       max_prefix_length: 16
       keep_prefix_length: 5
       skip_tokens:
@@ -220,6 +232,12 @@ profiles:
         - '幼儿园'
         - '职业学校'
         - '实验学校'
+      whitelist:
+        - '学校'
+        - '医院'
+        - '政府'
+        - '法院'
+        - '办公室'
       max_prefix_length: 24
       keep_prefix_length: 5
       skip_tokens:
