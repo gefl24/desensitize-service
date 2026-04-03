@@ -51,6 +51,8 @@ Compose 默认挂载：
 - `./uploads -> /app/uploads`
 - `./outputs -> /app/outputs`
 
+说明：ZIP 打包结果也输出到 `/app/outputs`，不再额外创建子目录。
+
 ## 7. 配置规则
 规则文件位置：
 - `config/rules.yaml`

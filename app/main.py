@@ -23,9 +23,8 @@ OUTPUT_DIR = BASE_DIR / "outputs"
 LOG_DIR = BASE_DIR / "logs"
 CONFIG_DIR = BASE_DIR / "config"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-ZIP_DIR = OUTPUT_DIR / "bundles"
 
-for directory in (UPLOAD_DIR, OUTPUT_DIR, LOG_DIR, CONFIG_DIR, ZIP_DIR):
+for directory in (UPLOAD_DIR, OUTPUT_DIR, LOG_DIR, CONFIG_DIR):
     ensure_dir(directory)
 
 logger = get_logger(LOG_DIR)
@@ -49,7 +48,7 @@ def index(request: Request):
 
 @app.post("/api/v1/desensitize")
 async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_api_key)):
-    cleanup_expired_files(UPLOAD_DIR, OUTPUT_DIR, ZIP_DIR, ttl_hours=24)
+    cleanup_expired_files(UPLOAD_DIR, OUTPUT_DIR, ttl_hours=24)
 
     if not file.filename or not is_allowed_filename(file.filename):
         raise HTTPException(status_code=400, detail="unsupported file type")
@@ -63,7 +62,7 @@ async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_ap
     input_path = UPLOAD_DIR / f"{task_id}{suffix}"
     output_path = OUTPUT_DIR / f"{task_id}_masked{suffix}"
     report_path = OUTPUT_DIR / f"{task_id}_report.json"
-    zip_path = ZIP_DIR / f"{task_id}_bundle.zip"
+    zip_path = OUTPUT_DIR / f"{task_id}_bundle.zip"
 
     input_path.write_bytes(content)
 
@@ -118,7 +117,7 @@ def download_report(filename: str):
 
 @app.get("/api/v1/bundles/{filename}")
 def download_bundle(filename: str):
-    path = ZIP_DIR / filename
+    path = OUTPUT_DIR / filename
     if not path.exists():
         raise HTTPException(status_code=404, detail="bundle not found")
     return FileResponse(path, media_type="application/zip", filename=filename)
@@ -126,7 +125,7 @@ def download_bundle(filename: str):
 
 @app.get("/api/v1/desensitize/download/{task_id}")
 def download_bundle_by_task(task_id: str):
-    path = ZIP_DIR / f"{task_id}_bundle.zip"
+    path = OUTPUT_DIR / f"{task_id}_bundle.zip"
     if not path.exists():
         raise HTTPException(status_code=404, detail="bundle not found")
     return FileResponse(path, media_type="application/zip", filename=path.name)

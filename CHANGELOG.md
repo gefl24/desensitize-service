@@ -19,6 +19,10 @@
 - docx 从单 run 处理调整为按段落合并后处理，解决跨 run 命中问题
 - 健康检查从 `/docs` 逻辑改为独立 `/healthz`
 
+### Fixed
+- 修复容器在挂载 `outputs` 目录后无法创建 `/app/outputs/bundles` 子目录导致的启动失败问题
+- ZIP 打包结果改为直接输出到 `/app/outputs`
+
 ### Known Issues
 - docx 细粒度 run 样式保留有限
 - 尚未加入限流与异步任务队列
