@@ -46,6 +46,7 @@ org_suffix_rules:
     - '局'
     - '医院'
     - '银行'
+    - '分行'
     - '支行'
     - '农商行'
   max_prefix_length: 16
@@ -94,6 +95,7 @@ profiles:
         - '局'
         - '医院'
         - '银行'
+        - '分行'
         - '支行'
         - '农商行'
       max_prefix_length: 16
@@ -149,6 +151,7 @@ profiles:
         - '局'
         - '医院'
         - '银行'
+        - '分行'
         - '支行'
         - '农商行'
       max_prefix_length: 24
