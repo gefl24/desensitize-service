@@ -72,9 +72,9 @@ def test_org_suffix_should_mask_bureau_bank_branch_and_hospital():
     assert '协和医院' not in masked
 
 
-def test_org_suffix_should_mask_school_and_authority_units():
+def test_org_suffix_should_mask_school_authority_and_finance_units():
     strict_engine = MaskingEngine(CONFIG_DIR, profile='strict')
-    text = '北京大学、朝阳区人民法院、海淀区检察院、幸福路派出所、第一中学都需要脱敏。'
+    text = '北京大学、朝阳区人民法院、海淀区检察院、幸福路派出所、第一中学、风险管理委员会、税务局、招商证券、平安保险、创新基金、第一幼儿园都需要脱敏。'
 
     masked, details = strict_engine.desensitize_text(text, location='text:7')
 
@@ -83,4 +83,10 @@ def test_org_suffix_should_mask_school_and_authority_units():
     assert '海淀区检察院' not in masked
     assert '幸福路派出所' not in masked
     assert '第一中学' not in masked
-    assert sum(1 for detail in details if detail.rule_type == 'org_suffix') >= 5
+    assert '风险管理委员会' not in masked
+    assert '税务局' not in masked
+    assert '招商证券' not in masked
+    assert '平安保险' not in masked
+    assert '创新基金' not in masked
+    assert '第一幼儿园' not in masked
+    assert sum(1 for detail in details if detail.rule_type == 'org_suffix') >= 10
