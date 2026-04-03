@@ -49,6 +49,8 @@ Compose 默认挂载：
 - `./logs -> /app/logs`
 
 说明：若宿主机日志目录权限不足，服务会自动降级到 stdout 输出日志，不再因日志文件权限导致启动失败。
+
+说明：若 `uploads` / `outputs` / `logs` 挂载目录不可写，服务会自动降级到容器内 `/tmp/desensitize_service/<dir>`，优先保证服务可用与验证可继续。
 - `./config -> /app/config`
 - `./uploads -> /app/uploads`
 - `./outputs -> /app/outputs`

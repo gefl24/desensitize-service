@@ -24,6 +24,7 @@
 - ZIP 打包结果改为直接输出到 `/app/outputs`
 - 修复容器在挂载 `logs` 目录权限不足时因 `service.log` 无法创建导致的启动失败问题
 - 日志输出增加 stdout 降级策略
+- 增加 `uploads` / `outputs` / `logs` 不可写时自动回退到 `/tmp/desensitize_service/*` 的策略
 
 ### Known Issues
 - docx 细粒度 run 样式保留有限

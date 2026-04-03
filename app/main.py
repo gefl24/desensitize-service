@@ -12,15 +12,15 @@ from app.engine.masker import MaskingEngine
 from app.models.report import Report
 from app.utils.archive import build_result_zip
 from app.utils.auth import require_api_key
-from app.utils.file_guard import MAX_FILE_SIZE, is_allowed_filename, safe_suffix
+from app.utils.file_guard import MAX_FILE_SIZE, is_allowed_filename, resolve_writable_dir, safe_suffix
 from app.utils.cleanup import cleanup_expired_files, ensure_dir
 from app.utils.logger import get_logger
 from app.utils.mime_guard import validate_file_signature
 
 BASE_DIR = Path("/app") if Path("/app").exists() else Path(__file__).resolve().parents[1]
-UPLOAD_DIR = BASE_DIR / "uploads"
-OUTPUT_DIR = BASE_DIR / "outputs"
-LOG_DIR = BASE_DIR / "logs"
+UPLOAD_DIR = resolve_writable_dir(BASE_DIR / "uploads", "uploads")
+OUTPUT_DIR = resolve_writable_dir(BASE_DIR / "outputs", "outputs")
+LOG_DIR = resolve_writable_dir(BASE_DIR / "logs", "logs")
 CONFIG_DIR = BASE_DIR / "config"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
