@@ -2,7 +2,7 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -28,8 +28,15 @@ for directory in (UPLOAD_DIR, OUTPUT_DIR, LOG_DIR, CONFIG_DIR):
     ensure_dir(directory)
 
 logger = get_logger(LOG_DIR)
-engine = MaskingEngine(CONFIG_DIR)
-dispatcher = FileDispatcher(engine)
+DEFAULT_PROFILE = "light"
+
+
+def build_dispatcher(profile: str = DEFAULT_PROFILE) -> FileDispatcher:
+    engine = MaskingEngine(CONFIG_DIR, profile=profile)
+    return FileDispatcher(engine)
+
+
+dispatcher = build_dispatcher()
 
 app = FastAPI(title="Document Desensitizer MVP", version="1.0.0")
 templates = Jinja2Templates(directory=str(STATIC_DIR))
@@ -47,7 +54,11 @@ def index(request: Request):
 
 
 @app.post("/api/v1/desensitize")
-async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_api_key)):
+async def desensitize(
+    file: UploadFile = File(...),
+    profile: str = Query(DEFAULT_PROFILE, description="规则配置：light / strict"),
+    _: bool = Depends(require_api_key),
+):
     cleanup_expired_files(UPLOAD_DIR, OUTPUT_DIR, ttl_hours=24)
 
     if not file.filename or not is_allowed_filename(file.filename):
@@ -71,7 +82,8 @@ async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_ap
         raise HTTPException(status_code=400, detail="file signature validation failed")
 
     try:
-        masked_file_path, details = dispatcher.dispatch(input_path, output_path)
+        current_dispatcher = build_dispatcher(profile=profile)
+        masked_file_path, details = current_dispatcher.dispatch(input_path, output_path)
         report = Report(
             task_id=task_id,
             original_file=file.filename,
@@ -88,14 +100,21 @@ async def desensitize(file: UploadFile = File(...), _: bool = Depends(require_ap
         logger.exception("desensitize failed task_id=%s file=%s", task_id, file.filename)
         raise HTTPException(status_code=500, detail=f"processing failed: {exc}") from exc
 
+    hit_summary = {}
+    for detail in details:
+        hit_summary[detail.rule_type] = hit_summary.get(detail.rule_type, 0) + 1
+
     return JSONResponse({
         "task_id": task_id,
         "status": "success",
+        "profile": profile,
         "output_file": f"/api/v1/files/{masked_file_path.name}",
         "report_file": f"/api/v1/reports/{report_path.name}",
         "bundle_file": f"/api/v1/bundles/{zip_path.name}",
         "download_bundle_api": f"/api/v1/desensitize/download/{task_id}",
         "total_hits": len(details),
+        "hit_summary": hit_summary,
+        "details": [detail.model_dump() if hasattr(detail, "model_dump") else detail.dict() for detail in details],
     })
 
 

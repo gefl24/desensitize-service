@@ -9,19 +9,32 @@ from app.engine.dictionary_loader import DictionaryMasker
 
 
 class MaskingEngine:
-    def __init__(self, config_dir: Path):
+    def __init__(self, config_dir: Path, profile: str = "light"):
         self.config_dir = config_dir
+        self.profile = profile or "light"
         self.config = self._load_config()
         self.regex_rules = self._load_regex_rules()
         self.person_context_rules = self._load_person_context_rules()
         self.org_suffix_rules = self._load_org_suffix_rules()
-        self.dictionary_masker = DictionaryMasker(config_dir)
+        self.dictionary_masker = DictionaryMasker(config_dir, config=self.config)
 
     def _load_config(self) -> Dict:
         rules_path = self.config_dir / "rules.yaml"
         if not rules_path.exists():
             return {}
-        return yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
+
+        full_config = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
+        profiles = full_config.get("profiles") or {}
+        if not isinstance(profiles, dict) or self.profile not in profiles:
+            return full_config
+
+        base_config = {k: v for k, v in full_config.items() if k != "profiles"}
+        profile_config = profiles.get(self.profile) or {}
+        if not isinstance(profile_config, dict):
+            return base_config
+        merged = dict(base_config)
+        merged.update(profile_config)
+        return merged
 
     def _load_regex_rules(self):
         regex_rules = self.config.get("regex_rules") or {}

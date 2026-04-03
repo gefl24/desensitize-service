@@ -34,8 +34,9 @@ class _SimpleKeywordProcessor:
 
 
 class DictionaryMasker:
-    def __init__(self, config_dir: Path):
+    def __init__(self, config_dir: Path, config: Dict | None = None):
         self.config_dir = config_dir
+        self.config = config or {}
         processor_cls = KeywordProcessor or _SimpleKeywordProcessor
         self.keyword_processor = processor_cls(case_sensitive=False)
         self.loaded_keywords: List[str] = []
@@ -61,11 +62,12 @@ class DictionaryMasker:
                 self.loaded_keywords.append(keyword)
 
     def _load(self) -> None:
-        rules_path = self.config_dir / "rules.yaml"
-        if not rules_path.exists():
-            return
-
-        config = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
+        config = self.config
+        if not config:
+            rules_path = self.config_dir / "rules.yaml"
+            if not rules_path.exists():
+                return
+            config = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
 
         dictionary_groups = config.get("dictionary_groups") or {}
         if isinstance(dictionary_groups, dict):

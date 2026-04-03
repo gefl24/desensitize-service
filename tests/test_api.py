@@ -32,7 +32,10 @@ def test_desensitize_text_file_success():
     assert response.status_code == 200
     payload = response.json()
     assert payload['status'] == 'success'
+    assert payload['profile'] == 'light'
     assert 'bundle_file' in payload
+    assert 'hit_summary' in payload
+    assert isinstance(payload['details'], list)
 
 
 def test_desensitize_requires_api_key_when_enabled():
@@ -51,3 +54,16 @@ def test_desensitize_accepts_api_key_when_enabled():
         headers={'x-api-key': 'secret-key'}
     )
     assert response.status_code == 200
+
+
+def test_desensitize_supports_strict_profile():
+    client = build_client()
+    data = '员工赵敏女士来自北辰研究院'.encode('utf-8')
+    response = client.post(
+        '/api/v1/desensitize?profile=strict',
+        files={'file': ('sample.txt', io.BytesIO(data), 'text/plain')}
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['profile'] == 'strict'
+    assert any(item['rule_type'] in {'person_context', 'org_suffix'} for item in payload['details'])

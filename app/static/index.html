@@ -5,19 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>文档脱敏服务 MVP</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
-    .result { margin-top: 20px; padding: 12px; background: #f7f7f7; border-radius: 6px; white-space: pre-wrap; }
+    body { font-family: Arial, sans-serif; max-width: 920px; margin: 40px auto; padding: 0 16px; color: #222; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 20px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .result { margin-top: 20px; padding: 16px; background: #f7f7f7; border-radius: 8px; white-space: normal; }
     button { padding: 8px 14px; cursor: pointer; }
+    select, input[type="file"] { padding: 6px; }
+    .summary { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
+    .chip { background: #e9eefc; color: #234; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
+    .links a { margin-right: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #f0f0f0; }
+    .muted { color: #666; font-size: 13px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>文档脱敏服务 MVP</h2>
-    <p>支持 txt / md / docx / xlsx，最大 20MB。</p>
+    <p>支持 txt / md / docx / xlsx，最大 20MB。现在支持轻量 / 严格 两档规则。</p>
     <form id="uploadForm">
-      <input type="file" id="fileInput" name="file" required />
-      <button type="submit">上传并脱敏</button>
+      <div class="row">
+        <input type="file" id="fileInput" name="file" required />
+        <label for="profileSelect">规则档位：</label>
+        <select id="profileSelect" name="profile">
+          <option value="light" selected>light（轻量模糊）</option>
+          <option value="strict">strict（更严格）</option>
+        </select>
+        <button type="submit">上传并脱敏</button>
+      </div>
+      <p class="muted">light 更偏保守兼容；strict 会扩大姓名/机构后缀识别范围。</p>
     </form>
     <div id="result" class="result" style="display:none;"></div>
   </div>
@@ -26,9 +43,54 @@
     const form = document.getElementById('uploadForm');
     const result = document.getElementById('result');
 
+    const escapeHtml = (value) => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+    const renderSummary = (summary) => {
+      const entries = Object.entries(summary || {});
+      if (!entries.length) return '<div class="muted">没有命中明细。</div>';
+      return `<div class="summary">${entries
+        .map(([key, count]) => `<span class="chip">${escapeHtml(key)}: ${count}</span>`)
+        .join('')}</div>`;
+    };
+
+    const renderDetails = (details) => {
+      if (!details || !details.length) return '<div class="muted">没有命中详情。</div>';
+      const rows = details.map(item => `
+        <tr>
+          <td>${escapeHtml(item.rule_type)}</td>
+          <td>${escapeHtml(item.entity_type)}</td>
+          <td>${escapeHtml(item.location)}</td>
+          <td>${escapeHtml(item.original_preview)}</td>
+          <td>${escapeHtml(item.masked_preview)}</td>
+          <td>${escapeHtml(item.masked_by || '')}</td>
+        </tr>
+      `).join('');
+      return `
+        <table>
+          <thead>
+            <tr>
+              <th>命中类型</th>
+              <th>实体类型</th>
+              <th>位置</th>
+              <th>原文</th>
+              <th>脱敏后</th>
+              <th>规则</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    };
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fileInput = document.getElementById('fileInput');
+      const profileSelect = document.getElementById('profileSelect');
       if (!fileInput.files.length) return;
 
       const fd = new FormData();
@@ -37,10 +99,23 @@
       result.textContent = '处理中...';
 
       try {
-        const res = await fetch('/api/v1/desensitize', { method: 'POST', body: fd });
+        const profile = encodeURIComponent(profileSelect.value || 'light');
+        const res = await fetch(`/api/v1/desensitize?profile=${profile}`, { method: 'POST', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || '处理失败');
-        result.innerHTML = `任务ID: ${data.task_id}\n命中数: ${data.total_hits}\n\n<a href="${data.output_file}" target="_blank">下载脱敏文件</a>\n<a href="${data.report_file}" target="_blank">查看报告</a>\n<a href="${data.bundle_file}" target="_blank">下载 ZIP 打包结果</a>`;
+
+        result.innerHTML = `
+          <div><strong>任务ID：</strong>${escapeHtml(data.task_id)}</div>
+          <div><strong>规则档位：</strong>${escapeHtml(data.profile)}</div>
+          <div><strong>命中数：</strong>${escapeHtml(data.total_hits)}</div>
+          ${renderSummary(data.hit_summary)}
+          <div class="links">
+            <a href="${escapeHtml(data.output_file)}" target="_blank">下载脱敏文件</a>
+            <a href="${escapeHtml(data.report_file)}" target="_blank">查看报告 JSON</a>
+            <a href="${escapeHtml(data.bundle_file)}" target="_blank">下载 ZIP 打包结果</a>
+          </div>
+          ${renderDetails(data.details)}
+        `;
       } catch (err) {
         result.textContent = '出错：' + err.message;
       }
