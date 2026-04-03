@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  desensitizer-api:
+    build: .
+    container_name: desensitizer-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+    environment:
+      - TZ=Asia/Shanghai
+      - API_KEY=
+    restart: unless-stopped
