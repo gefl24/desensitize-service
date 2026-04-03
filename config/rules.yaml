@@ -49,6 +49,15 @@ org_suffix_rules:
     - '分行'
     - '支行'
     - '农商行'
+    - '大学'
+    - '学院'
+    - '学校'
+    - '中学'
+    - '小学'
+    - '政府'
+    - '法院'
+    - '检察院'
+    - '派出所'
   max_prefix_length: 16
   keep_prefix_length: 5
   skip_tokens:
@@ -98,6 +107,15 @@ profiles:
         - '分行'
         - '支行'
         - '农商行'
+        - '大学'
+        - '学院'
+        - '学校'
+        - '中学'
+        - '小学'
+        - '政府'
+        - '法院'
+        - '检察院'
+        - '派出所'
       max_prefix_length: 16
       keep_prefix_length: 5
       skip_tokens:
@@ -154,6 +172,15 @@ profiles:
         - '分行'
         - '支行'
         - '农商行'
+        - '大学'
+        - '学院'
+        - '学校'
+        - '中学'
+        - '小学'
+        - '政府'
+        - '法院'
+        - '检察院'
+        - '派出所'
       max_prefix_length: 24
       keep_prefix_length: 5
       skip_tokens:
