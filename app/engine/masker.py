@@ -19,7 +19,10 @@ class MaskingEngine:
         if not rules_path.exists():
             return {}
         config = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
-        return config.get("regex_rules", {})
+        regex_rules = config.get("regex_rules") or {}
+        if not isinstance(regex_rules, dict):
+            return {}
+        return regex_rules
 
     def _mask_by_rule(self, rule_name: str, value: str) -> str:
         if rule_name == "phone":

@@ -16,7 +16,11 @@ class DictionaryMasker:
             return
 
         config = yaml.safe_load(rules_path.read_text(encoding="utf-8")) or {}
-        for dict_name in config.get("dictionary_files", []):
+        dictionary_files = config.get("dictionary_files") or []
+        if not isinstance(dictionary_files, list):
+            return
+
+        for dict_name in dictionary_files:
             dict_path = self.config_dir / "dictionaries" / dict_name
             if not dict_path.exists():
                 continue
