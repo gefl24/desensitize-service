@@ -13,4 +13,5 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - API_KEY=
+      - CLEANUP_CRON=0 */6 * * *
     restart: unless-stopped
