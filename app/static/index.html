@@ -3,121 +3,212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>文档脱敏服务 MVP</title>
+  <title>文档脱敏服务 - 极速版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 920px; margin: 40px auto; padding: 0 16px; color: #222; }
-    .card { border: 1px solid #ddd; border-radius: 10px; padding: 20px; }
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    .result { margin-top: 20px; padding: 16px; background: #f7f7f7; border-radius: 8px; white-space: normal; }
-    button { padding: 8px 14px; cursor: pointer; }
-    select, input[type="file"] { padding: 6px; }
-    .summary { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0; }
-    .chip { background: #e9eefc; color: #234; border-radius: 999px; padding: 4px 10px; font-size: 12px; }
-    .links a { margin-right: 12px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
-    th { background: #f0f0f0; }
-    .muted { color: #666; font-size: 13px; }
+    /* 定义一些自定义动画与样式 */
+    .drag-active { border-color: #3b82f6; background-color: #eff6ff; }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body>
-  <div class="card">
-    <h2>文档脱敏服务 MVP</h2>
-    <p>支持 txt / md / docx / xlsx，最大 20MB。现在支持轻量 / 严格 两档规则。</p>
-    <form id="uploadForm">
-      <div class="row">
-        <input type="file" id="fileInput" name="file" required />
-        <label for="profileSelect">规则档位：</label>
-        <select id="profileSelect" name="profile">
-          <option value="light" selected>light（轻量模糊）</option>
-          <option value="strict">strict（更严格）</option>
-        </select>
-        <button type="submit">上传并脱敏</button>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col items-center py-10">
+
+  <div class="max-w-4xl w-full px-4">
+    <div class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">文档脱敏服务 MVP</h1>
+      <p class="text-gray-500">支持 txt / md / docx / xlsx，最大 20MB。自动识别并抹除敏感信息。</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+      <form id="uploadForm" class="space-y-6">
+        
+        <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-10 text-center transition-colors cursor-pointer hover:bg-gray-50">
+          <input type="file" id="fileInput" name="file" class="hidden" required accept=".txt,.md,.docx,.xlsx" />
+          <svg class="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+          <p class="text-gray-600"><span class="font-medium text-blue-600">点击选择文件</span> 或拖拽文件到这里</p>
+          <p class="text-sm text-gray-400 mt-1" id="fileNameDisplay">尚未选择文件</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center space-x-3 w-full sm:w-auto">
+            <label for="profileSelect" class="text-sm font-medium text-gray-700 whitespace-nowrap">规则档位</label>
+            <select id="profileSelect" name="profile" class="block w-full sm:w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md border">
+              <option value="light" selected>Light (轻量模糊，推荐)</option>
+              <option value="strict">Strict (严格匹配)</option>
+            </select>
+          </div>
+          
+          <button type="submit" id="submitBtn" class="w-full sm:w-auto flex justify-center items-center py-2.5 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50">
+            <span>开始脱敏</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div id="resultArea" class="hidden space-y-6">
+      
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">处理结果</h3>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-500">任务 ID</p><p class="font-mono text-sm text-gray-900 truncate" id="resTaskId">-</p></div>
+          <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-500">规则档位</p><p class="font-medium text-gray-900" id="resProfile">-</p></div>
+          <div class="bg-gray-50 p-3 rounded-lg"><p class="text-xs text-gray-500">总命中数</p><p class="font-bold text-red-500 text-lg" id="resHits">0</p></div>
+          <div class="bg-blue-50 p-3 rounded-lg flex items-center justify-center">
+            <a id="btnDownloadZip" href="#" target="_blank" class="text-sm font-medium text-blue-700 hover:text-blue-800 flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              一键下载完整包
+            </a>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <p class="text-sm text-gray-500 mb-2">命中规则分布：</p>
+          <div id="summaryChips" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="flex space-x-4 text-sm mt-4 pt-4 border-t border-gray-100">
+          <a id="btnDownloadFile" href="#" target="_blank" class="text-gray-600 hover:text-blue-600 underline">单下脱敏文件</a>
+          <a id="btnDownloadReport" href="#" target="_blank" class="text-gray-600 hover:text-blue-600 underline">查看 JSON 报告</a>
+        </div>
       </div>
-      <p class="muted">light 更偏保守兼容；strict 会扩大姓名/机构后缀识别范围。</p>
-    </form>
-    <div id="result" class="result" style="display:none;"></div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+          <h3 class="text-sm font-medium text-gray-700">脱敏明细</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-white">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原文</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">脱敏后</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实体类型</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">规则源</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">位置</th>
+              </tr>
+            </thead>
+            <tbody id="detailsBody" class="bg-white divide-y divide-gray-100">
+              </tbody>
+          </table>
+        </div>
+      </div>
+      
+    </div>
   </div>
 
   <script>
     const form = document.getElementById('uploadForm');
-    const result = document.getElementById('result');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultArea = document.getElementById('resultArea');
 
-    const escapeHtml = (value) => String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+    // 工具函数：防 XSS
+    const escapeHtml = (val) => String(val ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
 
-    const renderSummary = (summary) => {
-      const entries = Object.entries(summary || {});
-      if (!entries.length) return '<div class="muted">没有命中明细。</div>';
-      return `<div class="summary">${entries
-        .map(([key, count]) => `<span class="chip">${escapeHtml(key)}: ${count}</span>`)
-        .join('')}</div>`;
-    };
+    // UI 交互：文件选择与拖拽
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    fileInput.addEventListener('change', () => {
+      fileNameDisplay.textContent = fileInput.files[0] ? fileInput.files[0].name : "尚未选择文件";
+      if(fileInput.files[0]) fileNameDisplay.classList.add('text-blue-500');
+    });
 
-    const renderDetails = (details) => {
-      if (!details || !details.length) return '<div class="muted">没有命中详情。</div>';
-      const rows = details.map(item => `
-        <tr>
-          <td>${escapeHtml(item.rule_type)}</td>
-          <td>${escapeHtml(item.entity_type)}</td>
-          <td>${escapeHtml(item.location)}</td>
-          <td>${escapeHtml(item.original_preview)}</td>
-          <td>${escapeHtml(item.masked_preview)}</td>
-          <td>${escapeHtml(item.masked_by || '')}</td>
-        </tr>
-      `).join('');
-      return `
-        <table>
-          <thead>
-            <tr>
-              <th>命中类型</th>
-              <th>实体类型</th>
-              <th>位置</th>
-              <th>原文</th>
-              <th>脱敏后</th>
-              <th>规则</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
-    };
+    ['dragover', 'dragenter'].forEach(evt => {
+      dropZone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropZone.classList.add('drag-active');
+      });
+    });
 
+    ['dragleave', 'dragend', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-active');
+      });
+    });
+
+    dropZone.addEventListener('drop', e => {
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        fileNameDisplay.textContent = fileInput.files[0].name;
+        fileNameDisplay.classList.add('text-blue-500');
+      }
+    });
+
+    // 表单提交
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fileInput = document.getElementById('fileInput');
-      const profileSelect = document.getElementById('profileSelect');
-      if (!fileInput.files.length) return;
+      if (!fileInput.files.length) return alert("请先选择文件！");
 
       const fd = new FormData();
       fd.append('file', fileInput.files[0]);
-      result.style.display = 'block';
-      result.textContent = '处理中...';
+      
+      // 切换 Loading 状态
+      const originalBtnText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="loader"></span>处理中...';
+      resultArea.classList.add('hidden');
 
       try {
-        const profile = encodeURIComponent(profileSelect.value || 'light');
+        const profile = encodeURIComponent(document.getElementById('profileSelect').value || 'light');
         const res = await fetch(`/api/v1/desensitize?profile=${profile}`, { method: 'POST', body: fd });
         const data = await res.json();
+        
         if (!res.ok) throw new Error(data.detail || '处理失败');
 
-        result.innerHTML = `
-          <div><strong>任务ID：</strong>${escapeHtml(data.task_id)}</div>
-          <div><strong>规则档位：</strong>${escapeHtml(data.profile)}</div>
-          <div><strong>命中数：</strong>${escapeHtml(data.total_hits)}</div>
-          ${renderSummary(data.hit_summary)}
-          <div class="links">
-            <a href="${escapeHtml(data.output_file)}" target="_blank">下载脱敏文件</a>
-            <a href="${escapeHtml(data.report_file)}" target="_blank">查看报告 JSON</a>
-            <a href="${escapeHtml(data.bundle_file)}" target="_blank">下载 ZIP 打包结果</a>
-          </div>
-          ${renderDetails(data.details)}
-        `;
+        // 渲染数据
+        document.getElementById('resTaskId').textContent = data.task_id.split('-')[0] + '...';
+        document.getElementById('resProfile').textContent = data.profile;
+        document.getElementById('resHits').textContent = data.total_hits;
+        
+        document.getElementById('btnDownloadZip').href = data.bundle_file;
+        document.getElementById('btnDownloadFile').href = data.output_file;
+        document.getElementById('btnDownloadReport').href = data.report_file;
+
+        // 渲染 Chips
+        const chipsHtml = Object.entries(data.hit_summary || {}).map(([key, count]) => 
+          `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${escapeHtml(key)}: ${count}</span>`
+        ).join('');
+        document.getElementById('summaryChips').innerHTML = chipsHtml || '<span class="text-sm text-gray-400">无规则命中</span>';
+
+        // 渲染表格
+        const tbody = document.getElementById('detailsBody');
+        if (!data.details || !data.details.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-sm text-gray-400">未发现敏感信息</td></tr>';
+        } else {
+          tbody.innerHTML = data.details.map(item => `
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap text-red-500 line-through">${escapeHtml(item.original_preview)}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-green-600 font-medium">${escapeHtml(item.masked_preview)}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-gray-500"><span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">${escapeHtml(item.entity_type)}</span></td>
+              <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-xs">${escapeHtml(item.rule_type)}</td>
+              <td class="px-6 py-4 whitespace-nowrap text-gray-400 text-xs truncate max-w-xs" title="${escapeHtml(item.location)}">${escapeHtml(item.location)}</td>
+            </tr>
+          `).join('');
+        }
+
+        resultArea.classList.remove('hidden');
       } catch (err) {
-        result.textContent = '出错：' + err.message;
+        alert('出错：' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
       }
     });
   </script>
