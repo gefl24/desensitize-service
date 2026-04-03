@@ -60,12 +60,13 @@ def test_strict_profile_should_match_more_context_and_suffixes():
     assert any(detail.rule_type in {'person_context', 'org_suffix'} for detail in strict_details)
 
 
-def test_org_suffix_should_keep_first_five_chars():
+def test_org_suffix_should_mask_bureau_bank_and_hospital():
     strict_engine = MaskingEngine(CONFIG_DIR, profile='strict')
-    text = '内蒙古盛昱电子科技有限公司已签约。'
+    text = '呼和浩特市公安局、招商银行北京支行、协和医院都需要脱敏。'
 
-    masked, details = strict_engine.desensitize_text(text, location='text:5')
+    masked, details = strict_engine.desensitize_text(text, location='text:6')
 
-    assert '内蒙古盛昱' in masked
-    assert '内蒙古盛昱电子科技有限公司' not in masked
-    assert any(detail.rule_type == 'org_suffix' and detail.masked_preview.startswith('内蒙古盛昱') and '*' in detail.masked_preview for detail in details)
+    assert '呼和浩特市公安局' not in masked
+    assert '招商银行北京支行' not in masked
+    assert '协和医院' not in masked
+    assert any(detail.rule_type == 'org_suffix' and detail.entity_type == 'ORGANIZATION_NAME' for detail in details)

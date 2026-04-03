@@ -43,6 +43,11 @@ org_suffix_rules:
     - '集团'
     - '科技'
     - '技术部'
+    - '局'
+    - '医院'
+    - '银行'
+    - '支行'
+    - '农商行'
   max_prefix_length: 16
   keep_prefix_length: 5
   skip_tokens:
@@ -86,6 +91,11 @@ profiles:
         - '集团'
         - '科技'
         - '技术部'
+        - '局'
+        - '医院'
+        - '银行'
+        - '支行'
+        - '农商行'
       max_prefix_length: 16
       keep_prefix_length: 5
       skip_tokens:
@@ -136,6 +146,11 @@ profiles:
         - '研究院'
         - '中心'
         - '事务所'
+        - '局'
+        - '医院'
+        - '银行'
+        - '支行'
+        - '农商行'
       max_prefix_length: 24
       keep_prefix_length: 5
       skip_tokens:
